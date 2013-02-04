@@ -129,6 +129,56 @@ describe('no.View', function() {
                     ['scroll', '.foo-show', no.pe]
                 ]);
             });
+
+            it('Unbind DOM events on htmldestroy', function() {
+
+                var STATUS = no.V.STATUS;
+                var spy = sinon.spy();
+                var first_view_node, second_view_node;
+
+                no.View.define(
+                    'test-dom-htmldestroy', {
+                    events: { 'click': 'onclick' },
+                    methods: {
+                        onclick: spy
+                    }
+                });
+
+                // Создаём инстанс view.
+                var v = no.View.create('test-dom-htmldestroy', {});
+                expect(v.key).to.be.eql('view=test-dom-htmldestroy');
+                expect(v.node).to.be(null);
+
+                // Инициализируем html ноду view.
+                var node = document.createElement('div');
+                node.innerHTML = '<div class="view-test-dom-htmldestroy"/>';
+                v._updateHTML(node, {}, {}, { toplevel: true });
+                first_view_node = v.node;
+
+                // Проверка, что обработчик события прописался.
+                $(first_view_node).trigger('click'); // Должен сработать.
+                expect(spy.callCount).to.be.eql(1);
+                $(node).trigger('click'); // Не должен сработать, потому что нода view лежит внутри node.
+                expect(spy.callCount).to.be.eql(1);
+
+                // Инвалидация view и базовые проверки.
+                v.invalidate();
+                expect(v.status).to.be.eql(STATUS.INVALID);
+
+                // Пришла новая нода для view. Обновляем html-ю ноду view.
+                var node2 = document.createElement('div');
+                node2.innerHTML = '<div class="view-test-dom-htmldestroy"/>';
+                v._updateHTML(node2, {}, {}, { toplevel: true });
+                second_view_node = v.node;
+
+                // Проверяем, что на старой ноде обработчик больше не срабатывает.
+                $(first_view_node).trigger('click'); // Не должен сработать, потому что обработчик должен был отписаться.
+                expect(spy.callCount).to.be.eql(1);
+
+                // А на новой -- срабатывает.
+                $(second_view_node).trigger('click'); // Должен сработать на новой ноде.
+                expect(spy.callCount).to.be.eql(2);
+            });
         });
 
         describe('no.events', function() {
